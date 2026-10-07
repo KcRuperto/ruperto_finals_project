@@ -1,121 +1,117 @@
-import {useState, useEffect} from 'react';
-import axios from 'axios';
+import { useState, useEffect } from "react";
+import axios from "axios";
 
-const intialForm = {
-  name: "",
-  course: "",
-  age: ""
-}
+const API = "http://localhost:5000/students";
+const initialForm = { name: "", course: "", age: "" };
 
-function App () {
-const [form, setForm] = useState(intialForm);
-const [isEditing, setIsEditing] = useState(false);
-const [editForm, setEditForm] = useState(intialForm);
-const [students, setStudents] = useState([]);
+function App() {
+  const [form, setForm] = useState(initialForm);
+  const [students, setStudents] = useState([]);
+  const [editingId, setEditingId] = useState(null);
 
-useEffect(() => {
-  axios.get('http://localhost:5000/students')
-  .then((response) => {
-    setStudents(response.data)
-  });
-}, []);
+  // READ
+  const fetchStudents = async () => {
+    try {
+      const response = await axios.get(API);
+      setStudents(response.data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
-const handleChange = (e) => {
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  // CREATE or UPDATE, depending on editingId
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const data = { ...form, age: Number(form.age) };
+
+    try {
+      if (editingId) {
+        await axios.put(`${API}/${editingId}`, data);
+      } else {
+        await axios.post(API, data);
+      }
+      setForm(initialForm);
+      setEditingId(null);
+      fetchStudents();
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  // Load a student into the form
+  const handleEdit = (student) => {
+    setEditingId(student._id);
     setForm({
-      ...form, [e.target.name]: e.target.value
+      name: student.name,
+      course: student.course,
+      age: student.age,
     });
-  }
+  };
 
-const handleChangeEdit =(e) => {
-  setEditForm({
-    ...editForm, [e.target.name]: e.target.value
-  });
-}
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setForm(initialForm);
+  };
 
-const handleSubmit = (e) => {
-  e.preventDefault()
-
-  try{
-    fetch("http://localhost:5000/students", {
-      method: "POST",
-      HEADERS: {"Content-Type": "Application/json"},
-      body: JSON.stringify({...form, age: Number(form.age)})
-    })
-    setForm(intialForm)
-    const additional = students.map((student)  => s._id, i==d)
-    setStudents(additional)
-  }catch (error){
-    console.log(error)
-  }
-}
-
-const handleEdit = (student) =>{
-  setIsEditing(true)
-  setEditForm(student)
-}
-
-const handleSubmitEdit = async (e) => {
-  e.preventDefault();
-
-  try {
-    const response = await fetch(`http://localhost:5000/students/${editForm._id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({...editForm, age: Number(editForm.age)})
-    });
-
-    const updated = await response.json();
-    setStudents((prev) =>
-      prev.map((student) =>
-        student._id === editForm._id ? updated : student
-      )
-    );
-    setIsEditing(false);
-    setEditForm(intialForm);
-  } catch (error) {
-    console.log(error);
-  }
-}
-
-const handleDelete = async(id)=> {
-  fetch(`http://localhost:5000/students/${id}`, {
-    method: "DELETE"
-  })
-  const remaining = students.filter((student) => student._id !== id)
-  setStudents(remaining)
-}
-
+  // DELETE
+  const handleDelete = async (id) => {
+    try {
+      await axios.delete(`${API}/${id}`);
+      fetchStudents();
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   return (
     <div>
       <h1>Student Management System</h1>
-      <h2>Add Student</h2>
+      <h2>{editingId ? "Edit Student" : "Add Student"}</h2>
 
-      <form onsubmit = {handleSubmit}>
-        <h1>Student Management System</h1>
+      <form onSubmit={handleSubmit}>
+        <label>Name: </label>
+        <input type="text" required name="name" value={form.name} onChange={handleChange} />
+        <br />
 
-          <h2>Add Student</h2>
-          <input type="text" required name="name" onChange={handleChange} value={form.name} />
+        <label>Course: </label>
+        <input type="text" required name="course" value={form.course} onChange={handleChange} />
+        <br />
 
-          <br></br>
+        <label>Age: </label>
+        <input type="number" required name="age" value={form.age} onChange={handleChange} />
+        <br />
 
-          <input type="text" required name="course" onChange={handleChange} value={form.course} />
-
-          <br></br>
-
-          <input type="number" required name="age" onChange={handleChange} value={form.age} />
-
-          <br></br>
-
-          <button type="submit">Add Student</button>
+        <button type="submit">{editingId ? "Update Student" : "Add Student"}</button>
+        {editingId && (
+          <button type="button" onClick={handleCancelEdit}>Cancel</button>
+        )}
       </form>
 
-    <br></br>
-    <p>Name: </p>
-    <p>Course: </p>
-    <p>Age: </p>
+      <br />
 
-    <p>No student yet.</p>
+      {students.length === 0 ? (
+        <p>No student yet.</p>
+      ) : (
+        students.map((student) => (
+          <div key={student._id}>
+            <p>Name: {student.name}</p>
+            <p>Course: {student.course}</p>
+            <p>Age: {student.age}</p>
+            <button onClick={() => handleEdit(student)}>Edit</button>
+            <button onClick={() => handleDelete(student._id)}>Delete</button>
+            <hr />
+          </div>
+        ))
+      )}
     </div>
   );
 }
